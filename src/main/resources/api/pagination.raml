@@ -1,0 +1,46 @@
+#%RAML 1.0
+
+title:       Pagination Prototype
+description: Some description later
+baseUri:     http://${app.host}:${app.port}/api/v1/countries
+
+mediaType: application/json
+version: v1
+
+/health:
+  description: Dead simple health check
+  get:
+    responses:
+      200:
+        body:
+          application/json:
+            example: !include examples/success-health.json
+
+/:
+  post:
+    description: Submit a record for email.
+    body:
+      application/json:
+        example: !include examples/countries.json
+    responses:
+      201:  # created
+        body:
+          text/plain: !!null  # empty response body
+  get:
+    description: Retrieve the email records. #http://localhost:8081/api/v1/countries?page=1&pageCount=20
+    queryParameters:
+      page:
+        example: 1
+        type: number
+        format: int
+        required: false
+      perPage:
+        example: 20
+        type: number
+        format: int
+        required: false
+    responses:
+      200: 
+        body:
+          application/json:
+            example: !include examples/countries-paged.json
