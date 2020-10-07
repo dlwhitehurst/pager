@@ -1,121 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
-http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-    <http:listener-config name="pagination-httpListenerConfig">
-        <http:listener-connection host="0.0.0.0" port="8081" />
-    </http:listener-config>
-    <apikit:config name="pagination-config" api="pagination.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
 
-    <sub-flow name="pagination-analysis" doc:id="c8560568-c7bc-432d-a5a4-f5a3abffb73b" >
-		<set-variable value="#['/api/v1/countries']" doc:name="Link Self" doc:id="c0a9db22-aab5-4b0d-a379-dce89d4a2ae3" variableName="linkSelf"/>
-		<set-variable value="#[attributes.queryParams.page]" doc:name="page" doc:id="4514c14d-5172-4acb-b061-12d6d68766eb" variableName="page"/>
-		<set-variable value="#[attributes.queryParams.perPage]" doc:name="perPage" doc:id="89fc51b0-9445-4856-9308-72fd684f2e8d" variableName="perPage" />
-		<set-variable value="#[sizeOf(payload.data)]" doc:name="initialSize" doc:id="2f0c6c2a-3331-49ce-8e00-152b8ca75f8e" variableName="initialSize" />
-		<set-variable value='#[%dw 2.0 output application/json --- 
-mod((vars.initialSize default 1),(vars.perPage default 1)) as String {format: "0"} as Number]' doc:name="Modulo" doc:id="3d6be49c-92b6-4637-9a5f-2ed57c625e86" variableName="moduloRecords" />
-		<set-variable value='#[%dw 2.0 output application/json --- ((vars.initialSize default 1)/( vars.perPage default 1)) as String {format: "0"}]' doc:name="numberPages" doc:id="9089adb6-e8ad-4baa-a01c-105650608788" variableName="numberPages" />
-		<set-variable value="#[(vars.page * vars.perPage) - 1]" doc:name="endIndex" doc:id="22f0b21e-f02f-40eb-a7a0-4f9a6f6b9103" variableName="endIndex"/>
-		<choice doc:name="Choice" doc:id="24df3d0b-3f33-4a05-b2a0-edb705451053" >
-			<when expression="#[vars.endIndex &gt; vars.initialSize]">
-				<set-variable value="#[(vars.page -1) * vars.perPage]" doc:name="startIndex" doc:id="28bc2014-2c9d-4d99-bbd4-b21f92146d9e" variableName="startIndex" />
-				<set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + (vars.moduloRecords - 1 as Number) as Number]" doc:name="endIndex" doc:id="074d99ba-ec83-4846-886d-762683442d93" variableName="endIndex"/>
-			</when>
-			<otherwise >
-				<set-variable value="#[vars.endIndex - (vars.perPage - 1)]" doc:name="startIndex" doc:id="eb9a7071-a5d6-4a1e-9521-680ffa674072" variableName="startIndex"/>
-			</otherwise>
-		</choice>
-	</sub-flow>
-	<flow name="pagination-main">
-        <http:listener config-ref="pagination-httpListenerConfig" path="/api/v1/countries/*">
-            <http:response statusCode="#[vars.httpStatus default 200]">
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
-            </http:response>
-            <http:error-response statusCode="#[vars.httpStatus default 500]">
-                <http:body>#[payload]</http:body>
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
-            </http:error-response>
-        </http:listener>
-        <apikit:router config-ref="pagination-config" />
-        <error-handler>
-            <on-error-propagate type="APIKIT:BAD_REQUEST">
-                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+    <flow name="get:\health:pagination-config">
+        <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
-{message: "Bad request"}]]></ee:set-payload>
-                    </ee:message>
-                    <ee:variables>
-                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-            </on-error-propagate>
-            <on-error-propagate type="APIKIT:NOT_FOUND">
-                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{message: "Resource not found"}]]></ee:set-payload>
-                    </ee:message>
-                    <ee:variables>
-                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-            </on-error-propagate>
-            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
-                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{message: "Method not allowed"}]]></ee:set-payload>
-                    </ee:message>
-                    <ee:variables>
-                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-            </on-error-propagate>
-            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
-                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{message: "Not acceptable"}]]></ee:set-payload>
-                    </ee:message>
-                    <ee:variables>
-                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-            </on-error-propagate>
-            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
-                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{message: "Unsupported media type"}]]></ee:set-payload>
-                    </ee:message>
-                    <ee:variables>
-                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-            </on-error-propagate>
-            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
-                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{message: "Not Implemented"}]]></ee:set-payload>
-                    </ee:message>
-                    <ee:variables>
-                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
-                    </ee:variables>
-                </ee:transform>
-            </on-error-propagate>
-        </error-handler>
+{
+  message: "This API seems to be available!"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
     </flow>
 
     <flow name="get:\:pagination-config">
@@ -379,44 +279,37 @@ output application/json
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
-		<flow-ref doc:name="Payload Analysis" doc:id="f553e2ae-b5a6-4372-83c1-e080377c2133" name="pagination-analysis" />
-		<ee:transform doc:name="Paged Payload" doc:id="2049e945-512f-4b97-9629-84827fed9a98" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/json
----
-{
-	data: payload.data[vars.startIndex to vars.endIndex],
-  	links: {
-    	self: vars.linkSelf ++ "?page=1&perPage=" ++ vars.perPage as String,
-    	next: vars.linkSelf ++ "?page=" ++ (vars.page + 1) ++ "&perPage=" ++ vars.perPage as String,
-		previous: 
-		   if ( vars.page == "1") 
-		  	vars.linkSelf ++ "?page=1&perPage=" ++ vars.perPage
-		   else 
-    	  	vars.linkSelf ++ '?page=' ++ (vars.page - 1) ++ '&pageCount=' ++ vars.perPage as String,
-    	last: vars.linkSelf ++ '?page=' ++ vars.numberPages + 1 ++ '&pageCount=' ++ vars.perPage as String
-  }	
-}]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<logger level="INFO" doc:name="Temporary" doc:id="6d42adb4-818b-4d26-a58f-d899d449e265" message="#['Initial Array Size: ' ++ vars.initialSize]"/>
-    </flow>
-
-    <flow name="get:\health:pagination-config">
-        <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  message: "This API seems to be available!"
-}]]></ee:set-payload>
+		<flow-ref doc:name="Payload Analysis" doc:id="775f1fe2-5543-457c-a7f9-ef0b48a9c511" name="pagination-analysis" />
+		<ee:transform doc:name="Paged Payload">
+        	<ee:message>
+            	<ee:set-payload resource="modules/paged-payload.dwl" />
             </ee:message>
         </ee:transform>
+		<logger level="INFO" doc:name="Temporary" doc:id="eadf2eb6-fdf4-44aa-aec1-3f9ec5567029" message="#['Initial Array Size: ' ++ vars.initialSize]"/>
     </flow>
 
     <flow name="post:\:application\json:pagination-config">
         <logger level="INFO" message="post:\:application\json:pagination-config" />
     </flow>
-</mule>
+	
+    <sub-flow name="pagination-analysis" doc:id="0c79e685-2dfe-4094-be8e-51acaefebc0e" >
+		<set-variable value="#['/api/v1/countries']" doc:name="Link Self" doc:id="b3647b1d-cab7-432e-ad9d-6ac6aee7c88a" variableName="linkSelf"/>
+		<set-variable value="#[attributes.queryParams.page]" doc:name="page" doc:id="da6f6b25-27a6-4fd1-a13b-c6d8eaf960eb" variableName="page"/>
+		<set-variable value="#[attributes.queryParams.perPage]" doc:name="perPage" doc:id="e2392bf6-2d81-4aeb-a11e-5ad4e5a9f754" variableName="perPage" />
+		<set-variable value="#[sizeOf(payload.data)]" doc:name="initialSize" doc:id="41dbe728-3695-4f64-9f01-53924a572d45" variableName="initialSize" />
+		<set-variable value='#[%dw 2.0 output application/json --- 
+mod((vars.initialSize default 1),(vars.perPage default 1)) as String {format: "0"} as Number]' doc:name="Modulo" doc:id="68f1f4ac-b5a8-403d-9fb4-fb450a64834a" variableName="moduloRecords" />
+		<set-variable value='#[%dw 2.0 output application/json --- ((vars.initialSize default 1)/( vars.perPage default 1)) as String {format: "0"}]' doc:name="numberPages" doc:id="f640633c-e46e-4f8b-810c-911bdcd96c57" variableName="numberPages" />
+		<set-variable value="#[(vars.page * vars.perPage) - 1]" doc:name="endIndex" doc:id="77863a98-052a-42e9-8901-3c9398fb8836" variableName="endIndex"/>
+		<choice doc:name="Choice" doc:id="aa68525c-3790-4784-8681-c034960c78c8" >
+			<when expression="#[vars.endIndex &gt; vars.initialSize]">
+				<set-variable value="#[(vars.page -1) * vars.perPage]" doc:name="startIndex" doc:id="ad809dbc-45b9-45c3-baac-7fdd6a736e43" variableName="startIndex" />
+				<set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + (vars.moduloRecords - 1 as Number) as Number]" doc:name="endIndex" doc:id="40aafb02-754f-4597-9ebb-4427ad6320c6" variableName="endIndex"/>
+			</when>
+			<otherwise >
+				<set-variable value="#[vars.endIndex - (vars.perPage - 1)]" doc:name="startIndex" doc:id="9b2404aa-8d3c-4088-9c43-8b8ea478f1da" variableName="startIndex"/>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	
+	</mule>
