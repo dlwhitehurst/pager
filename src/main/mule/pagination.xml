@@ -10,16 +10,15 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		<set-variable value="#['/api/v1/countries']" doc:name="Link Self" doc:id="c0a9db22-aab5-4b0d-a379-dce89d4a2ae3" variableName="linkSelf"/>
 		<set-variable value="#[attributes.queryParams.page]" doc:name="page" doc:id="4514c14d-5172-4acb-b061-12d6d68766eb" variableName="page"/>
 		<set-variable value="#[attributes.queryParams.perPage]" doc:name="perPage" doc:id="89fc51b0-9445-4856-9308-72fd684f2e8d" variableName="perPage" />
-		<set-variable value="#[payload]" doc:name="Initial Array" doc:id="b0de0e43-8ed8-415b-a6e9-580a972ee2e3" variableName="initial" />
 		<set-variable value="#[sizeOf(payload.data)]" doc:name="initialSize" doc:id="2f0c6c2a-3331-49ce-8e00-152b8ca75f8e" variableName="initialSize" />
 		<set-variable value='#[%dw 2.0 output application/json --- 
-mod((vars.initialSize default 1),(vars.perPage default 1)) as String {format: "0"}]' doc:name="Modulo" doc:id="3d6be49c-92b6-4637-9a5f-2ed57c625e86" variableName="moduloRecords" />
+mod((vars.initialSize default 1),(vars.perPage default 1)) as String {format: "0"} as Number]' doc:name="Modulo" doc:id="3d6be49c-92b6-4637-9a5f-2ed57c625e86" variableName="moduloRecords" />
 		<set-variable value='#[%dw 2.0 output application/json --- ((vars.initialSize default 1)/( vars.perPage default 1)) as String {format: "0"}]' doc:name="numberPages" doc:id="9089adb6-e8ad-4baa-a01c-105650608788" variableName="numberPages" />
 		<set-variable value="#[(vars.page * vars.perPage) - 1]" doc:name="endIndex" doc:id="22f0b21e-f02f-40eb-a7a0-4f9a6f6b9103" variableName="endIndex"/>
 		<choice doc:name="Choice" doc:id="24df3d0b-3f33-4a05-b2a0-edb705451053" >
 			<when expression="#[vars.endIndex &gt; vars.initialSize]">
 				<set-variable value="#[(vars.page -1) * vars.perPage]" doc:name="startIndex" doc:id="28bc2014-2c9d-4d99-bbd4-b21f92146d9e" variableName="startIndex" />
-				<set-variable value="#[%dw 2.0 output application/json --- vars.startIndex as Number + vars.moduloRecords as Number]" doc:name="endIndex" doc:id="074d99ba-ec83-4846-886d-762683442d93" variableName="endIndex"/>
+				<set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + (vars.moduloRecords - 1 as Number) as Number]" doc:name="endIndex" doc:id="074d99ba-ec83-4846-886d-762683442d93" variableName="endIndex"/>
 			</when>
 			<otherwise >
 				<set-variable value="#[vars.endIndex - (vars.perPage - 1)]" doc:name="startIndex" doc:id="eb9a7071-a5d6-4a1e-9521-680ffa674072" variableName="startIndex"/>
@@ -387,7 +386,7 @@ output application/json
 output application/json
 ---
 {
-	data: payload.data[vars.startIndex as Number to vars.endIndex as Number],
+	data: payload.data[vars.startIndex to vars.endIndex],
   	links: {
     	self: vars.linkSelf ++ "?page=1&perPage=" ++ vars.perPage as String,
     	next: vars.linkSelf ++ "?page=" ++ (vars.page + 1) ++ "&perPage=" ++ vars.perPage as String,
