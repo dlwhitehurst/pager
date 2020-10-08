@@ -1,7 +1,7 @@
 #%RAML 1.0
 
 title:       Pagination Prototype
-description: Some description later
+description: API returns 243 country records (paged)
 baseUri:     http://${app.host}:${app.port}/api/v1/countries
 
 mediaType: application/json
@@ -40,7 +40,7 @@ version: v1
         format: int
         required: false
     responses:
-      200: 
+      200:
         body:
           application/json:
-            example: !include examples/countries-paged.json
+            example: !include examples/countries.json
