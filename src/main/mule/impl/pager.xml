@@ -1,21 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-    xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule 
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+    xmlns="http://www.mulesoft.org/schema/mule/core" 
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+    xsi:schemaLocation="
+    	http://www.mulesoft.org/schema/mule/core 
+    	http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/ee/core 
+		http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+">
 
-	<sub-flow name="calc-indices" doc:id="4a670831-9dca-4595-8325-10192c889671" >
-		<choice doc:name="Choice">
-            <when expression="#[vars.endIndex &gt; vars.initialSize]">
-                <set-variable value="#[(vars.page -1) * vars.perPage]" doc:name="startIndex" variableName="startIndex" />
-                <set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + (vars.moduloRecords - 1 as Number) as Number]" doc:name="endIndex" variableName="endIndex" />
-            </when>
-            <otherwise>
-                <set-variable value="#[vars.endIndex - (vars.perPage - 1)]" doc:name="startIndex" variableName="startIndex" />
-            </otherwise>
-        </choice>
-	</sub-flow>
 	<flow name="get:\health:pagination-config">
         <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
             <ee:message>
@@ -30,7 +26,7 @@ output application/json
     </flow>
 
     <flow name="get:\:pagination-config">
-        <ee:transform doc:name="Paged Payload">
+        <ee:transform doc:name="Initial Payload">
             <ee:message>
                 <ee:set-payload resource="modules/initial-payload.dwl" />
             </ee:message>
@@ -42,37 +38,88 @@ output application/json
             </ee:message>
         </ee:transform>
         <logger level="INFO" doc:name="Temporary" message="#['Initial Array Size: ' ++ vars.initialSize]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="59d7c8e6-07a4-499a-b577-9ce9533f26b5" type="ERR:BAD_PAGE_NO">
+            	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
+            	<set-variable value="#['400 BAD_REQUEST The page number is not within the context of the request']" doc:name="Msg 400" variableName="errMsg"/>
+                <flow-ref doc:name="error-handler" name="error-handler"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ec63d7c3-49cd-40e9-9b0b-7e80dfd4c34b" type="ERR:PER_PAGE_ZERO_OR_LESS">
+            	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
+            	<set-variable value="#['400 BAD_REQUEST The perPage value cannot be zero or less']" doc:name="Msg 400" variableName="errMsg"/>
+                <flow-ref doc:name="error-handler" name="error-handler"/>
+			</on-error-propagate>
+            <on-error-propagate type="ANY">
+            	<set-variable value="#[500]" doc:name="httpStatus 500" variableName="httpStatus"/>
+            	<set-variable value="#['500 INTERNAL_SERVER An unknown error has occurred']" doc:name="Msg 500" variableName="errMsg"/>
+                <flow-ref doc:name="error-handler" name="error-handler"/>
+            </on-error-propagate>
+
+		</error-handler>
     </flow>
 
-    <flow name="post:\:application\json:pagination-config">
-        <logger level="INFO" message="post:\:application\json:pagination-config" />
-    </flow>
-
-    <sub-flow name="pagination-analysis" >
+    <flow name="pagination-analysis" >
 		<flow-ref doc:name="init-vars" doc:id="6478b935-6429-46d9-90e9-a010b178fd46" name="init-vars" />
+		<flow-ref doc:name="calc-vars" doc:id="aed69f04-2df7-46dc-8603-ed5a4d8c4483" name="calc-vars" />
 		<choice doc:name="Choice" doc:id="0e485d81-3b55-4287-8239-3af23054fa24" >
-			<when expression="#[vars.page &gt; vars.numberPages or vars.page == 0]">
-				<raise-error doc:name="Raise error" doc:id="3f2af250-f921-4c69-9786-dd17975733c4" type="ERR:BAD_PAGE_NO" description="The page number is outside the scope of this request"/>
+			<when expression="#[vars.page &gt; vars.numberPages or vars.page as Number &lt;= 0]">
+				<raise-error doc:name="Raise error" type="ERR:BAD_PAGE_NO" description="The page number is outside the scope of this request"/>
 			</when>
 			<otherwise >
 				<flow-ref doc:name="calc-indices" doc:id="e99daafc-ed2a-45c5-8bb0-ec4ccfc5652d" name="calc-indices" />
 			</otherwise>
 		</choice>
-    </sub-flow>
+    </flow>
 
-    <sub-flow name="init-vars" doc:id="3f9c1ac4-d4d6-4f81-88a0-2965ca1bdd55" >
+    <sub-flow name="init-vars" doc:id="3559387b-8778-470f-aeb1-d74280c13eaf" >
 		<set-variable value="#['/api/v1/countries']" doc:name="Link Self" variableName="linkSelf" />
 		<set-variable value="#[attributes.queryParams.page]" doc:name="page" variableName="page" />
 		<set-variable value="#[attributes.queryParams.perPage]" doc:name="perPage" variableName="perPage" />
 		<set-variable value="#[sizeOf(payload.data)]" doc:name="initialSize" variableName="initialSize" />
-		<set-variable value='#[%dw 2.0 output application/json ---
+	</sub-flow>
+
+	<sub-flow name="calc-vars" doc:id="71178574-0f7f-4561-9f01-8359361915ad" >
+		<choice doc:name="Choice" doc:id="85781339-3f15-4b15-834b-8443f25423bd" >
+			<when expression="#[vars.perPage as Number &lt;= 0]">
+				<raise-error doc:name="Raise error" doc:id="7e2475d5-2652-467a-8fbf-8989730be154" type="ERR:PER_PAGE_ZERO_OR_LESS" description="Variable perPage cannot be zero or less."/>
+			</when>
+			<otherwise >
+				<set-variable value='#[%dw 2.0 output application/json ---
 mod((vars.initialSize default 1),(vars.perPage default 1)) as String {format: "0"} as Number]' doc:name="Modulo" variableName="moduloRecords" />
+			</otherwise>
+		</choice>
 		<set-variable value='#[%dw 2.0 output application/json ---
 if (vars.moduloRecords != 0) 
 ((vars.initialSize default 1)/( vars.perPage default 1) + 1) as String {format: "0"}
 else
 ((vars.initialSize default 1)/( vars.perPage default 1)) as String {format: "0"}]' doc:name="numberPages" variableName="numberPages" />
-		<set-variable value="#[(vars.page * vars.perPage) - 1]" doc:name="endIndex" variableName="endIndex" />
 	</sub-flow>
+
+	<sub-flow name="calc-indices" doc:id="024e0460-b622-45b8-abe6-9f328363e806" >
+		<set-variable value="#[(vars.page * vars.perPage) - 1]" doc:name="endIndex" variableName="endIndex" />
+		<choice doc:name="Choice">
+            <when expression="#[vars.endIndex &gt; vars.initialSize]">
+                <set-variable value="#[(vars.page -1) * vars.perPage]" doc:name="startIndex" variableName="startIndex" />
+                <set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + (vars.moduloRecords - 1 as Number) as Number]" doc:name="endIndex" variableName="endIndex" />
+            </when>
+            <otherwise>
+                <set-variable value="#[vars.endIndex - (vars.perPage - 1)]" doc:name="startIndex" variableName="startIndex" />
+            </otherwise>
+        </choice>
+	</sub-flow>
+
+    <flow name="error-handler" >
+       <ee:transform doc:name="Error Payload" doc:id="72b9ad5f-09bb-49a0-92d6-8821160540ec" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: vars.errMsg
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" message="We have an error" doc:name="Temporary"/>
+ 	</flow>	
 
     </mule>
