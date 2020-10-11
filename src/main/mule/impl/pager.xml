@@ -41,7 +41,7 @@ output application/json
 		<error-handler >
 			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="59d7c8e6-07a4-499a-b577-9ce9533f26b5" type="ERR:BAD_PAGE_NO">
             	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
-            	<set-variable value="#['400 BAD_REQUEST The page number is not within the context of the request']" doc:name="Msg 400" variableName="errMsg"/>
+            	<set-variable value="#['400 BAD_REQUEST The page number is not within the scope of the request']" doc:name="Msg 400" variableName="errMsg"/>
                 <flow-ref doc:name="error-handler" name="error-handler"/>
 			</on-error-propagate>
 			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ec63d7c3-49cd-40e9-9b0b-7e80dfd4c34b" type="ERR:PER_PAGE_ZERO_OR_LESS">
@@ -49,6 +49,12 @@ output application/json
             	<set-variable value="#['400 BAD_REQUEST The perPage value cannot be zero or less']" doc:name="Msg 400" variableName="errMsg"/>
                 <flow-ref doc:name="error-handler" name="error-handler"/>
 			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="cb259605-3da5-493b-a69e-2fbebe82ecf6" type="ERR:PER_PAGE_EXCEEDS_DATA_SIZE">
+            	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
+            	<set-variable value="#['400 BAD_REQUEST The perPage value cannot be greater than the size of the dataset']" doc:name="Msg 400" variableName="errMsg"/>
+                <flow-ref doc:name="error-handler" name="error-handler"/>
+			</on-error-propagate>
+
             <on-error-propagate type="ANY">
             	<set-variable value="#[500]" doc:name="httpStatus 500" variableName="httpStatus"/>
             	<set-variable value="#['500 INTERNAL_SERVER An unknown error has occurred']" doc:name="Msg 500" variableName="errMsg"/>
@@ -62,7 +68,10 @@ output application/json
 		<flow-ref doc:name="init-vars" doc:id="6478b935-6429-46d9-90e9-a010b178fd46" name="init-vars" />
 		<flow-ref doc:name="calc-vars" doc:id="aed69f04-2df7-46dc-8603-ed5a4d8c4483" name="calc-vars" />
 		<choice doc:name="Choice" doc:id="0e485d81-3b55-4287-8239-3af23054fa24" >
-			<when expression="#[vars.page &gt; vars.numberPages or vars.page as Number &lt;= 0]">
+			<when expression="#[vars.page as Number &gt; vars.numberPages as Number]">
+				<raise-error doc:name="Raise error" type="ERR:BAD_PAGE_NO" description="The page number is outside the scope of this request"/>
+			</when>
+			<when expression="#[vars.page &lt;= 0]">
 				<raise-error doc:name="Raise error" type="ERR:BAD_PAGE_NO" description="The page number is outside the scope of this request"/>
 			</when>
 			<otherwise >
@@ -90,20 +99,36 @@ mod((vars.initialSize default 1),(vars.perPage default 1)) as String {format: "0
 		</choice>
 		<set-variable value='#[%dw 2.0 output application/json ---
 if (vars.moduloRecords != 0) 
-((vars.initialSize default 1)/( vars.perPage default 1) + 1) as String {format: "0"}
+((vars.initialSize default 1)/( vars.perPage default 1))  as String {format: "0", roundMode:"DOWN"} + 1
 else
-((vars.initialSize default 1)/( vars.perPage default 1)) as String {format: "0"}]' doc:name="numberPages" variableName="numberPages" />
+((vars.initialSize default 1)/( vars.perPage default 1)) as String {format: "0", roundMode:"DOWN"}]' doc:name="numberPages" variableName="numberPages" />
 	</sub-flow>
 
 	<sub-flow name="calc-indices" doc:id="024e0460-b622-45b8-abe6-9f328363e806" >
-		<set-variable value="#[(vars.page * vars.perPage) - 1]" doc:name="endIndex" variableName="endIndex" />
 		<choice doc:name="Choice">
-            <when expression="#[vars.endIndex &gt; vars.initialSize]">
-                <set-variable value="#[(vars.page -1) * vars.perPage]" doc:name="startIndex" variableName="startIndex" />
-                <set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + (vars.moduloRecords - 1 as Number) as Number]" doc:name="endIndex" variableName="endIndex" />
+<!-- perPage > initialSize -->
+            <when expression="#[vars.perPage &gt; vars.initialSize]">
+				<raise-error doc:name="Raise error" doc:id="8512fde0-9bad-4a27-a6a3-c7739dd9c1f7" type="ERR:PER_PAGE_EXCEEDS_DATA_SIZE" description="The variable perPage exceeds the initialSize variable"/>
             </when>
+<!-- page 1, perPage == initialSize -->
+            <when expression="#[vars.perPage == vars.initialSize]">
+				<set-variable value="0" doc:name="startIndex" variableName="startIndex"/>
+				<set-variable value="#[vars.initialSize - 2]" doc:name="endIndex" variableName="endIndex"/>
+            </when>
+<!-- page 1, perPage > initialSize -->
+            <when expression="#[vars.page as Number == 1 and vars.numberPages == 1]">
+				<set-variable value="0" doc:name="startIndex" variableName="startIndex"/>
+				<set-variable value="#[vars.initialSize - 1]" doc:name="endIndex" variableName="endIndex"/>
+            </when>
+<!-- page == numberPages -->
+            <when expression="#[(vars.page as Number == vars.numberPages) and (vars.moduloRecords &gt; 0)]">
+				<set-variable value="#[vars.perPage * (vars.page - 1)]" doc:name="startIndex" variableName="startIndex"/>
+				<set-variable value="#[%dw 2.0 output application/java --- (vars.startIndex as Number) + (vars.moduloRecords as Number) - 1]" doc:name="endIndex" variableName="endIndex"/>
+            </when>
+<!-- default -->
             <otherwise>
-                <set-variable value="#[vars.endIndex - (vars.perPage - 1)]" doc:name="startIndex" variableName="startIndex" />
+				<set-variable value="#[vars.perPage * (vars.page - 1)]" doc:name="startIndex" variableName="startIndex"/>
+				<set-variable value="#[vars.startIndex + (vars.perPage -1 )]" doc:name="endIndex" variableName="endIndex"/>
             </otherwise>
         </choice>
 	</sub-flow>
