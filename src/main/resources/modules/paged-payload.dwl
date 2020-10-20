@@ -4,18 +4,18 @@ output application/json
 {
     data: payload.data[vars.startIndex to vars.endIndex],
     links: {
-        self: vars.linkSelf ++ '?page=' ++ vars.page ++ '&perPage=' ++ vars.perPage as String,
+        self: vars.linkSelf ++ '?startItem=' ++ vars.startItem ++ '&maxItemCount=' ++ vars.maxItemCount as String,
         next: 
-  		   if (vars.page == vars.numberPages as String)
-        	vars.linkSelf ++ '?page=' ++ vars.page ++ '&perPage=' ++ vars.perPage as String
+           if (vars.endIndex == (vars.maxItemCount * (vars.numItemGroups - 1) + (vars.moduloRecords - 1)))
+            vars.linkSelf ++ '?startItem=' ++ vars.startItem ++ '&maxItemCount=' ++ vars.maxItemCount as String
   		   else      
-        	vars.linkSelf ++ '?page=' ++ (vars.page + 1) ++ '&perPage=' ++ vars.perPage as String,
+        	vars.linkSelf ++ '?startItem=' ++ (vars.startItem + vars.maxItemCount) ++ '&maxItemCount=' ++ vars.maxItemCount as String,
         previous:
-           if ( vars.page == '1')
-            vars.linkSelf ++ '?page=1&perPage=' ++ vars.perPage
+           if ( vars.startItem == '1')
+            vars.linkSelf ++ '?startItem=1&maxItemCount=' ++ vars.maxItemCount
            else
-            vars.linkSelf ++ '?page=' ++ (vars.page - 1) ++ '&pageCount=' ++ vars.perPage as String,
+            vars.linkSelf ++ '?startItem=' ++ (vars.startItem - vars.maxItemCount) ++ '&maxItemCount=' ++ vars.maxItemCount as String,
         last: 
-        	vars.linkSelf ++ '?page=' ++ vars.numberPages ++ '&pageCount=' ++ vars.perPage as String
+        	vars.linkSelf ++ '?startItem=' ++ (vars.initialSize - vars.moduloRecords + 1) ++ '&maxItemCount=' ++ vars.maxItemCount as String
   }
 }

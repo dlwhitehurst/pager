@@ -1,0 +1,6 @@
+# application specific (non-environment) properties
+
+default:
+  item:
+    start: "1"
+    maxcount: "243"

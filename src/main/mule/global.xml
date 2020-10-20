@@ -13,8 +13,9 @@
         http://www.mulesoft.org/schema/mule/http
         http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 ">
-    <apikit:config name="pagination-config" api="pagination.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
-    <http:listener-config name="pagination-httpListenerConfig">
+	<configuration-properties doc:name="application.yaml" file="application.yaml" />
+    <apikit:config name="api-config" api="api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <http:listener-config name="api-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="8081" />
     </http:listener-config>
 

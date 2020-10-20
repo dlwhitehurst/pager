@@ -18,18 +18,18 @@ version: v1
 
 /:
   get:
-    description: Retrieve the email records. #http://localhost:8081/api/v1/countries?page=1&pageCount=20
+    description: Retrieve the country records. #http://localhost:8081/api/v1/countries?startItem=1&maxItems=20
     queryParameters:
-      page:
+      startItem:
         example: 1
         type: number
         format: int
-        required: true
-      perPage:
+        required: false
+      maxItemCount:
         example: 20
         type: number
         format: int
-        required: true
+        required: false
     responses:
       200:
         body:
