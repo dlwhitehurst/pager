@@ -12,66 +12,57 @@
 		http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 ">
 
-    <flow name="paged-output">
-        <ee:transform doc:name="Initial Payload">
+	<flow name="paged-output">
+        <ee:transform doc:name="Initial">
             <ee:message>
                 <ee:set-payload resource="modules/initial-payload.dwl" />
             </ee:message>
         </ee:transform>
-        <flow-ref doc:name="Payload Analysis" name="pagination-analysis" />
-        <ee:transform doc:name="Paged Payload">
+        <flow-ref doc:name="pagination-analysis" name="pagination-analysis" />
+        <ee:transform doc:name="Paged">
             <ee:message>
                 <ee:set-payload resource="modules/paged-payload.dwl" />
             </ee:message>
         </ee:transform>
-        <logger level="INFO" doc:name="Temporary" message="#['Initial Array Size: ' ++ vars.initialSize]"/>
 		<error-handler >
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="59d7c8e6-07a4-499a-b577-9ce9533f26b5" type="ERR:BAD_PAGE_NO">
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="59d7c8e6-07a4-499a-b577-9ce9533f26b5" type="ERR:BAD_START_ITEM">
             	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
-            	<set-variable value="#['400 BAD_REQUEST The page number is not within the scope of the request']" doc:name="Msg 400" variableName="errMsg"/>
+            	<set-variable value="#['400 BAD_REQUEST The start item (index) is not within the scope of the request']" doc:name="Msg 400" variableName="errMsg"/>
                 <flow-ref doc:name="error-handler" name="error-handler"/>
 			</on-error-propagate>
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ec63d7c3-49cd-40e9-9b0b-7e80dfd4c34b" type="ERR:PER_PAGE_ZERO_OR_LESS">
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ec63d7c3-49cd-40e9-9b0b-7e80dfd4c34b" type="ERR:START_ITEM_ZERO_OR_LESS">
             	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
-            	<set-variable value="#['400 BAD_REQUEST The perPage value cannot be zero or less']" doc:name="Msg 400" variableName="errMsg"/>
+            	<set-variable value="#['400 BAD_REQUEST The start item (index) value cannot be zero or less']" doc:name="Msg 400" variableName="errMsg"/>
                 <flow-ref doc:name="error-handler" name="error-handler"/>
 			</on-error-propagate>
-			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="cb259605-3da5-493b-a69e-2fbebe82ecf6" type="ERR:PER_PAGE_EXCEEDS_DATA_SIZE">
-            	<set-variable value="#[400]" doc:name="httpStatus 400" variableName="httpStatus"/>
-            	<set-variable value="#['400 BAD_REQUEST The perPage value cannot be greater than the size of the dataset']" doc:name="Msg 400" variableName="errMsg"/>
-                <flow-ref doc:name="error-handler" name="error-handler"/>
-			</on-error-propagate>
-
             <on-error-propagate type="ANY">
             	<set-variable value="#[500]" doc:name="httpStatus 500" variableName="httpStatus"/>
             	<set-variable value="#['500 INTERNAL_SERVER An unknown error has occurred']" doc:name="Msg 500" variableName="errMsg"/>
                 <flow-ref doc:name="error-handler" name="error-handler"/>
             </on-error-propagate>
-
 		</error-handler>
     </flow>
 
-    <flow name="pagination-analysis" >
-		<set-variable value="#['/api/v1/countries']" doc:name="Link Self" variableName="linkSelf" />
-		<choice doc:name="Choice" doc:id="e8c84257-9d9f-435a-a954-5d85b915775e" >
-			<when expression="#[attributes.queryParams.startItem != null and attributes.queryParams.maxItemCount != null]">
+    <sub-flow name="pagination-analysis" >
+		<flow-ref doc:name="static-vars" doc:id="211a05ad-5fc7-4dcd-b5be-e8df351ad2df" name="static-vars" />
+		<choice doc:name="Params Specified" doc:id="e8c84257-9d9f-435a-a954-5d85b915775e" >
+			<when expression="#[message.attributes.queryParams.startItem != null and message.attributes.queryParams.maxItemCount != null]">
 				<flow-ref doc:name="set-vars" doc:id="6478b935-6429-46d9-90e9-a010b178fd46" name="set-vars" />
 			</when>
 			<otherwise >
 				<flow-ref doc:name="default-vars" doc:id="05aa53e2-5c2e-4ed1-9362-9b6b38f5b3b2" name="default-vars"/>
 			</otherwise>
 		</choice>
-		<set-variable value="#[sizeOf(payload.data)]" doc:name="initialSize" variableName="initialSize" />
-		<choice doc:name="Choice" doc:id="33fa210f-c5ce-4232-a485-c7747386ae19" >
+		<choice doc:name="&gt; 1 Page" doc:id="33fa210f-c5ce-4232-a485-c7747386ae19" >
 			<when expression="#[vars.maxItemCount &lt; vars.initialSize]">
 				<logger level="INFO" doc:name="Logger" doc:id="c758c8fc-604d-40fc-a945-7b1666afea85" message="Do the MATH!"/>
 				<flow-ref doc:name="calc-vars" doc:id="aed69f04-2df7-46dc-8603-ed5a4d8c4483" name="calc-vars" />
 				<choice doc:name="Choice" doc:id="0e485d81-3b55-4287-8239-3af23054fa24">
-			<when expression="#[vars.startItem as Number &gt; vars.initialSize as Number]">
-				<raise-error doc:name="Raise error" type="ERR:BAD_PAGE_NO" description="The page number is outside the scope of this request" />
+			<when expression="#[vars.startItem as Number &gt;= vars.lastIndex as Number]">
+				<raise-error doc:name="Raise error" type="ERR:BAD_START_ITEM" description="The starting item (index) is outside the scope of this request" />
 			</when>
 			<when expression="#[vars.startItem &lt;= 0]">
-				<raise-error doc:name="Raise error" type="ERR:BAD_PAGE_NO" description="The page number is outside the scope of this request" />
+				<raise-error doc:name="Raise error" type="ERR:BAD_START_ITEM" description="The start item (index) is outside the scope of this request" />
 			</when>
 			<otherwise>
 				<flow-ref doc:name="calc-indices" doc:id="e99daafc-ed2a-45c5-8bb0-ec4ccfc5652d" name="calc-indices" />
@@ -80,20 +71,28 @@
 			</when>
 			<otherwise >
 				<logger level="INFO" doc:name="Logger" doc:id="6e96ed65-cbc3-4ff6-8460-bdf45fed2954" message="We're DONE"/>
-				<set-variable value="#[0]" doc:name="startIndex" doc:id="5589ae0f-f809-460d-8339-9fbeb862af40" variableName="startIndex"/>
 				<set-variable value="#[vars.initialSize - 1]" doc:name="endIndex" doc:id="7c7fb885-99cf-4d6c-9148-7721da7f5403" variableName="endIndex"/>
 				<set-variable value="#[0]" doc:name="moduloRecords" doc:id="0c7d65d8-7f02-441e-a734-052b9a5f0d79" variableName="moduloRecords"/>
 			</otherwise>
 		</choice>
-    </flow>
+    </sub-flow>
+
+    <sub-flow name="static-vars" doc:id="db7f57f8-d175-4cfb-b2f1-c63dd5f08c60" >
+		<set-variable value="#['/api/v1/countries']" doc:name="Link Self" variableName="linkSelf" />
+		<set-variable value="#[sizeOf(payload.data) default 0]" doc:name="initialSize" variableName="initialSize" />
+		<set-variable value="#[0]" doc:name="startIndex" doc:id="9760657d-5ab4-4f10-980a-0f19760cb3e7" variableName="startIndex"/>
+		<set-variable value="#[vars.initialSize -1]" doc:name="lastIndex" doc:id="3f12a720-00d5-4b96-8a5e-a47b9108c55d" variableName="lastIndex"/>
+	</sub-flow>
 
     <sub-flow name="set-vars" doc:id="3559387b-8778-470f-aeb1-d74280c13eaf" >
 		<set-variable value="#[attributes.queryParams.startItem]" doc:name="startItem" variableName="startItem" />
-		<set-variable value="#[attributes.queryParams.maxItemCount]" doc:name="maxItemCount" variableName="maxItemCount" />
+		<set-variable value="#[vars.startItem - 1]" doc:name="startIndex" doc:id="7d4908c9-f632-424f-b27f-985dc4ca8cff" variableName="startIndex"/>
+		<set-variable value="#[message.attributes.queryParams.maxItemCount]" doc:name="maxItemCount" variableName="maxItemCount" />
 	</sub-flow>
 
     <sub-flow name="default-vars" doc:id="b356cef2-ceff-456c-be2b-9f26f6fae9f0" >
 		<set-variable value="${default.item.start}" doc:name="startItem" variableName="startItem" />
+		<set-variable value="#[vars.startItem - 1]" doc:name="startIndex" doc:id="94d87754-6834-41a6-80b6-deab91d6e482" variableName="startIndex"/>
 		<set-variable value="${default.item.maxcount}" doc:name="maxItemCount" variableName="maxItemCount" />
 		<set-variable value="#[1]" doc:name="numItemGroups" doc:id="def05af7-e393-4ab3-82f2-9496a10f5663" variableName="numItemGroups"/>
 	</sub-flow>
@@ -101,7 +100,7 @@
 	<sub-flow name="calc-vars" doc:id="71178574-0f7f-4561-9f01-8359361915ad" >
 		<choice doc:name="Choice" doc:id="85781339-3f15-4b15-834b-8443f25423bd" >
 			<when expression="#[vars.maxItemCount as Number &lt;= 0]">
-				<raise-error doc:name="Raise error" doc:id="7e2475d5-2652-467a-8fbf-8989730be154" type="ERR:PER_PAGE_ZERO_OR_LESS" description="Variable perPage cannot be zero or less."/>
+				<raise-error doc:name="Raise error" doc:id="7e2475d5-2652-467a-8fbf-8989730be154" type="ERR:START_ITEM_ZERO_OR_LESS" description="The start item (index) value cannot be zero or less"/>
 			</when>
 			<otherwise >
 				<set-variable value='#[%dw 2.0 output application/java ---
@@ -117,29 +116,25 @@ else
 
 	<sub-flow name="calc-indices" doc:id="024e0460-b622-45b8-abe6-9f328363e806" >
 		<choice doc:name="Choice">
-<!-- perPage > initialSize -->
-            <when expression="#[vars.maxItemCount &gt; vars.initialSize]">
-				<raise-error doc:name="Raise error" doc:id="8512fde0-9bad-4a27-a6a3-c7739dd9c1f7" type="ERR:PER_PAGE_EXCEEDS_DATA_SIZE" description="The variable perPage exceeds the initialSize variable"/>
-            </when>
-<!-- page 1, perPage == initialSize -->
             <when expression="#[vars.maxItemCount == vars.initialSize]">
 				<set-variable value="0" doc:name="startIndex" variableName="startIndex"/>
 				<set-variable value="#[vars.initialSize - 2]" doc:name="endIndex" variableName="endIndex"/>
             </when>
-<!-- page 1, perPage > initialSize -->
             <when expression="#[vars.startItem as Number == 1 and vars.numItemGroups == 1]">
 				<set-variable value="0" doc:name="startIndex" variableName="startIndex"/>
 				<set-variable value="#[vars.initialSize - 1]" doc:name="endIndex" variableName="endIndex"/>
             </when>
-<!-- page == numberPages -->
             <when expression="#[(vars.startItem == '1') and (vars.moduloRecords &gt; 0)]">
 				<set-variable value="#[vars.startItem - 1]" doc:name="startIndex" variableName="startIndex"/>
 				<set-variable value="#[%dw 2.0 output application/java --- (vars.maxItemCount as Number) - 1]" doc:name="endIndex" variableName="endIndex"/>
             </when>
-<!-- default -->
+            <when expression="#[(vars.startIndex + vars.moduloRecords == vars.initialSize)]">
+				<set-variable value="#[vars.startItem - 1]" doc:name="startIndex" variableName="startIndex"/>
+				<set-variable value="#[%dw 2.0 output application/java --- (vars.startIndex + vars.moduloRecords as Number) - 1]" doc:name="endIndex" variableName="endIndex"/>
+            </when>
             <otherwise>
 				<set-variable value="#[vars.startItem - 1]" doc:name="startIndex" variableName="startIndex"/>
-				<set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + vars.moduloRecords - 1]" doc:name="endIndex" variableName="endIndex"/>
+				<set-variable value="#[%dw 2.0 output application/java --- vars.startIndex + vars.maxItemCount - 1]" doc:name="endIndex" variableName="endIndex"/>
             </otherwise>
         </choice>
 	</sub-flow>

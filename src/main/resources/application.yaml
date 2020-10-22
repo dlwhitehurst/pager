@@ -3,4 +3,4 @@
 default:
   item:
     start: "1"
-    maxcount: "243"
+    maxcount: "20"
